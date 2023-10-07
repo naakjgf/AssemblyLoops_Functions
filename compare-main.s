@@ -1,4 +1,3 @@
-# Write the assembly code for the main of the compare program
 .global main
 .extern printf
 .extern atol
@@ -6,51 +5,71 @@
 
 .text
 main:
-    # Checking if argc is not 3
-    cmp %rdi, 3
+    enter $0, $0
+
+# Moving args into registers
+    movq 8(%rsi), %r12  # op = argv[1]
+    movq 16(%rsi), %r13 # arg1 = argv[2]
+    
+# Check if argc is not 3
+    cmp $3, %rdi
     jne wrong_args
-
-    # Convert the first arg to long
-    mov 8(%rsi), %rdi
+   
+# Convert the first arg to long
+    mov %r12, %rdi
     call atol
-    mov %rax, %rbx   # Storing result in %rbx instead of %r12 so I don't have to later
+    mov %rax, %r12
 
-    # Convert second arg to long
-    mov 16(%rsi), %rdi
+# Convert the second arg to long
+    mov %r13, %rdi
     call atol
+    mov %rax, %r13
 
     # Call compare function
-    mov %rbx, %rdi
+    mov %r12, %rdi
+    mov %r13, %rsi
     call compare
 
-    # Use result of compare to jump directly to the right message, 
-    lea less_msg(%rip), %rdx # computes the effective address of less_msg relative to the current %rip value and loads that into %rdx
-    lea equal_msg(%rip), %rcx # same applies to these ones as well, cool stuff
-    lea greater_msg(%rip), %r8
+    # Bitwise operation to see what the result was
+    test %rax, %rax
 
-    cmovl %rdx, %rdi  # If less, it stores into the %rdi, these are all conditional moves
-    cmove %rcx, %rdi  # If equal
-    cmovg %r8, %rdi  # If greater
-    
-    mov $0, %rax
+    je equal #if rax, as in the result from compare is 0
+    jl less  #if rax, the result from compare is -1
+    jmp greater # default, but technically if it is 1 is the only case it will get here
+
+less:
+    mov $less_msg, %rdi
+    jmp print_msg
+
+equal:
+    mov $equal_msg, %rdi
+    jmp print_msg
+
+greater:
+    mov $greater_msg, %rdi
+
+print_msg:
+    mov $0, %rax  # Clearing rax, to show none of the vector registers are being used
     call printf
-    
-    xor %eax, %eax    # Setting return value to 0, using eax register to clear the first 32 bits showing there was no error    
+
+    xor %eax, %eax    # Return 0 (no error :D)
+    leave
     ret
 
 wrong_args:
-    lea two_args_msg(%rip), %rdi
+    mov $two_args_msg, %rdi
     call printf
-
-    mov $1, %eax # Setting it to 1 to show that there was an issue, 1 representing an error return value
+    mov $1, %eax # Return 1 (error)
+    leave
     ret
 
 .data
-two_args_msg:      
+two_args_msg:
    .asciz "Two arguments required.\n"
-less_msg:       
+less_msg:
    .asciz "less\n"
-equal_msg:      
+equal_msg:
    .asciz "equal\n"
-greater_msg:     
+greater_msg:
    .asciz "greater\n"
+
